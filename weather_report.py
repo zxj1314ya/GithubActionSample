@@ -9,9 +9,13 @@ import datetime
 appID = os.environ.get("APP_ID")
 appSecret = os.environ.get("APP_SECRET")
 # 收信人ID即 用户列表中的微信号
-openId = os.environ.get("OPEN_ID")
+openId = os.environ.get("OPEN_ID")   # >>> 保留原变量
 # 天气预报模板ID
 weather_template_id = os.environ.get("TEMPLATE_ID")
+
+# >>> 新增：支持逗号分隔的多个 OPEN_ID
+openIds = openId.replace("，", ",").split(",") if openId else []
+openIds = [x.strip() for x in openIds if x.strip()]
 
 def get_weather(my_city):
     urls = ["http://www.weather.com.cn/textFC/hb.shtml",
@@ -85,7 +89,7 @@ def get_daily_love():
     return daily_love
 
 
-def send_weather(access_token, weather):
+def send_weather(access_token, weather, touser):   # >>> 新增 touser 参数
     # touser 就是 openID
     # template_id 就是模板ID
     # url 就是点击模板跳转的url
@@ -96,7 +100,7 @@ def send_weather(access_token, weather):
     today_str = today.strftime("%Y年%m月%d日")
 
     body = {
-        "touser": openId.strip(),
+        "touser": touser,   # >>> 使用传入的 touser
         "template_id": weather_template_id.strip(),
         "url": "https://weixin.qq.com",
         "data": {
@@ -135,7 +139,8 @@ def weather_report(this_city):
     weather = get_weather(this_city)
     print(f"天气信息： {weather}")
     # 3. 发送消息
-    send_weather(access_token, weather)
+    for oid in openIds:   # >>> 新增：循环发送
+        send_weather(access_token, weather, oid)
 
 
 
