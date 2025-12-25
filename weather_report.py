@@ -9,13 +9,17 @@ import datetime
 appID = os.environ.get("APP_ID")
 appSecret = os.environ.get("APP_SECRET")
 # 收信人ID即 用户列表中的微信号
-openId = os.environ.get("OPEN_ID")   # >>> 保留原变量
+openId = os.environ.get("OPEN_ID")
 # 天气预报模板ID
 weather_template_id = os.environ.get("TEMPLATE_ID")
 
-# >>> 新增：支持逗号分隔的多个 OPEN_ID
-openIds = openId.replace("，", ",").split(",") if openId else []
-openIds = [x.strip() for x in openIds if x.strip()]
+# >>> 新增：把 OPEN_ID 解析成多个 openid（兼容英文逗号/中文逗号/点号/空格/换行）
+print("OPEN_ID raw repr:", repr(openId))
+openIds = []
+if openId:
+    cleaned = openId.strip().replace("，", ",").replace(".", ",").replace("\n", ",").replace(" ", "")
+    openIds = [x.strip() for x in cleaned.split(",") if x.strip()]
+print("OPEN_ID parsed:", [x[:8] + "..." + x[-6:] for x in openIds], "count=", len(openIds))
 
 def get_weather(my_city):
     urls = ["http://www.weather.com.cn/textFC/hb.shtml",
@@ -26,8 +30,9 @@ def get_weather(my_city):
             "http://www.weather.com.cn/textFC/xb.shtml",
             "http://www.weather.com.cn/textFC/xn.shtml"
             ]
+    headers = {"User-Agent": "Mozilla/5.0"}
     for url in urls:
-        resp = requests.get(url)
+        resp = requests.get(url, headers=headers, timeout=20)
         text = resp.content.decode("utf-8")
         soup = BeautifulSoup(text, 'html5lib')
         div_conMidtab = soup.find("div", class_="conMidtab")
@@ -67,7 +72,7 @@ def get_access_token():
     # 获取access token的url
     url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={}&secret={}' \
         .format(appID.strip(), appSecret.strip())
-    response = requests.get(url).json()
+    response = requests.get(url, timeout=20).json()
     print(response)
     access_token = response.get('access_token')
     return access_token
@@ -82,14 +87,14 @@ def get_love_day(start_date_str="2025-12-25"):
 def get_daily_love():
     # 每日一句情话
     url = "https://api.lovelive.tools/api/SweetNothings/Serialization/Json"
-    r = requests.get(url)
+    r = requests.get(url, timeout=20)
     all_dict = json.loads(r.text)
     sentence = all_dict['returnObj'][0]
     daily_love = sentence
     return daily_love
 
 
-def send_weather(access_token, weather, touser):   # >>> 新增 touser 参数
+def send_weather(access_token, weather, touser, note):
     # touser 就是 openID
     # template_id 就是模板ID
     # url 就是点击模板跳转的url
@@ -100,7 +105,7 @@ def send_weather(access_token, weather, touser):   # >>> 新增 touser 参数
     today_str = today.strftime("%Y年%m月%d日")
 
     body = {
-        "touser": touser,   # >>> 使用传入的 touser
+        "touser": touser,
         "template_id": weather_template_id.strip(),
         "url": "https://weixin.qq.com",
         "data": {
@@ -123,12 +128,13 @@ def send_weather(access_token, weather, touser):   # >>> 新增 touser 参数
                   "value": str(get_love_day())
             },
             "today_note": {
-                "value": get_daily_love()
+                "value": note
             }
         }
     }
     url = 'https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={}'.format(access_token)
-    print(requests.post(url, json.dumps(body)).text)
+    print("sending to:", touser)
+    print(requests.post(url, json=body, timeout=20).text)
 
 
 
@@ -139,8 +145,9 @@ def weather_report(this_city):
     weather = get_weather(this_city)
     print(f"天气信息： {weather}")
     # 3. 发送消息
-    for oid in openIds:   # >>> 新增：循环发送
-        send_weather(access_token, weather, oid)
+    note = get_daily_love()
+    for oid in openIds:
+        send_weather(access_token, weather, oid, note)
 
 
 
