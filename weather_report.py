@@ -9,17 +9,17 @@ import datetime
 appID = os.environ.get("APP_ID")
 appSecret = os.environ.get("APP_SECRET")
 # 收信人ID即 用户列表中的微信号
-openId = os.environ.get("OPEN_ID")
+openId = os.environ.get("OPEN_ID", "")
 # 天气预报模板ID
 weather_template_id = os.environ.get("TEMPLATE_ID")
 
-# >>> 新增：把 OPEN_ID 解析成多个 openid（兼容英文逗号/中文逗号/点号/空格/换行）
-print("OPEN_ID raw repr:", repr(openId))
-openIds = []
-if openId:
-    cleaned = openId.strip().replace("，", ",").replace(".", ",").replace("\n", ",").replace(" ", "")
-    openIds = [x.strip() for x in cleaned.split(",") if x.strip()]
-print("OPEN_ID parsed:", [x[:8] + "..." + x[-6:] for x in openIds], "count=", len(openIds))
+# ===== 多 openid 支持：一个或多个都能用 =====
+# OPEN_ID 支持：英文逗号、中文逗号、换行、空格（点号不建议，但这里不兼容点号，避免误伤）
+cleaned = openId.strip().replace("，", ",").replace("\n", ",").replace(" ", "")
+openIds = [x.strip() for x in cleaned.split(",") if x.strip()]
+
+print("OPEN_ID parsed count =", len(openIds))
+print("OPEN_ID parsed =", [x[:8] + "..." + x[-6:] for x in openIds])
 
 def get_weather(my_city):
     urls = ["http://www.weather.com.cn/textFC/hb.shtml",
@@ -133,8 +133,12 @@ def send_weather(access_token, weather, touser, note):
         }
     }
     url = 'https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={}'.format(access_token)
-    print("sending to:", touser)
-    print(requests.post(url, json=body, timeout=20).text)
+
+    # 标准 json= 发送，并检查返回，失败就让 Action 直接失败（否则你会看到“成功”但收不到）
+    resp = requests.post(url, json=body, timeout=20).json()
+    print("send to", touser[:8] + "..." + touser[-6:], resp)
+    if resp.get("errcode", 0) != 0:
+        raise RuntimeError(f"wx send failed: {resp}")
 
 
 
