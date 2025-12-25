@@ -3,6 +3,7 @@ import os
 import requests
 import json
 from bs4 import BeautifulSoup
+import datetime
 
 # 从测试号信息获取
 appID = os.environ.get("APP_ID")
@@ -68,6 +69,12 @@ def get_access_token():
     return access_token
 
 
+def get_love_day(start_date_str="2025-12-25"):
+    start = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    today = datetime.date.today()
+    return (today - start).days + 1
+
+
 def get_daily_love():
     # 每日一句情话
     url = "https://api.lovelive.tools/api/SweetNothings/Serialization/Json"
@@ -107,6 +114,9 @@ def send_weather(access_token, weather):
             },
             "wind_dir": {
                 "value": weather[3]
+            },
+            "love_day": {
+                  "value": str(get_love_day())
             },
             "today_note": {
                 "value": get_daily_love()
