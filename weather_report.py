@@ -156,4 +156,4 @@ def weather_report(this_city):
 
 
 if __name__ == '__main__':
-    weather_report("荆门")
+    weather_report("杭州")
